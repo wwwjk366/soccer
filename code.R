@@ -18,12 +18,16 @@ model <- glm(rbS.FinalScoreH ~ MeanH + MeanA + Minute + TotalScore + ScoreDiff,
 model2 <- glm(rbS.FinalScoreA ~ MeanH + MeanA + Minute + TotalScore + ScoreDiff,
              family = poisson(link = log), data = train)
 summary(model)
+varImp(model)
 
 plot(model)
 
 test1 = select(test, MeanH , MeanA , Minute , TotalScore ,ScoreDiff)
 
-a = predict(model, test1[1,], type="response")
+a = predict(model, test1, type="response")
+
+accuracy()
+
 plotrange <- 0:6
 dpois(0:7,a)
 
