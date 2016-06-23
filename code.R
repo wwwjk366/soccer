@@ -1,8 +1,40 @@
 library(dplyr)
 library(caret)
-library(forecast)
+library(scales)
 
-rawdata <- read.csv("E:/Test Projects/test/soccer/TrainingData_Sample2.csv", stringsAsFactors=FALSE)
+rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
+
+
+# discriptive -------------------------------------------------------------
+mycolor <- c(rep(c("#FF5A5F","#FFB400", "#007A87", "#8CE071", "#7B0051", "#00D1C1",
+                    "#FFAA91", "#B4A76C", "#9CA299", "#565A5C", "#00A04B","#E54C20"), 100))
+
+summary(rawdata)
+
+goaltime <- rawdata %>% 
+  group_by(ID) %>%
+  mutate(gtime = TotalScore - lag(TotalScore)) %>%
+  select(ID, Minute, TotalScore, gtime) %>%
+  filter(gtime == 1)
+
+ggplot(goaltime, aes(Minute)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  geom_density(color=mycolor[3],size = 1.5) +
+    ggtitle("Histogram of Goals")
+
+
+ggplot(rawdata, aes(x = DrawProb, y = League)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90))  + 
+  coord_flip()
+
+sort(table(rawdata$League))
+
+
+
+# model training ----------------------------------------------------------
+
+
 set.seed(3456)
 trainIndex <- createDataPartition(unique(rawdata$ID), p = .8,
                                   list = FALSE,
