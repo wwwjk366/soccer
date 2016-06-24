@@ -103,15 +103,13 @@ pred_a = predict(model_a, test_a %>% select(MeanH, SoG_H) , type="response")
 postResample(pred_a, test_a$rbS.FinalScoreH)
 
 # two factors maximum likelihood
+dat <- train %>% select(rbS.FinalScoreH, MeanH, SoG_H)
 
 LogLike <- function(dat, par) {
   beta0 <- par[1]
   beta1 <- par[2]
   beta2 <- par[3]
-  # the deterministic part of the model:
   lambda <- exp(beta0 + beta1 * dat$MeanH + beta2 * dat$SoG_H)
-  # and here comes the negative log-likelihood of the whole dataset, given the
-  # model:
   LL <- -sum(dpois(dat$rbS.FinalScoreH, lambda, log = TRUE))
   return(LL)
 }
@@ -120,28 +118,37 @@ LogLike <- function(dat, par) {
 beta0 <- rnorm(1)
 beta1 <- rnorm(1)
 beta2 <- rnorm(1)
-par1 <- c(beta0, beta1, beta2)
+par <- c(beta0, beta1, beta2)
 
-  
-dat <- train_a %>% select(rbS.FinalScoreH, MeanH, SoG_H)
 
 m.like <- optim(par = par, fn = LogLike, dat = dat)
 m.like
-
-mle <- maxLik(logLik = LogLike, start = par1)
-summary(mle)
-
-
-new.predict <- exp(m.like$par[1] + m.like$par[2] * test_a$MeanH + m.like$par[3] * test_a$SoG_H)
-                   
-postResample(new.predict, test_a$rbS.FinalScoreH)
+new.predict <- exp(m.like$par[1] + m.like$par[2] * test$MeanH + m.like$par[3] * test$SoG_H)
+postResample(new.predict, test$rbS.FinalScoreH)
 
 
 
+integrand <- function(x) {x}
+integrate(integrand, lower = 0, upper = 1)
 
+dnorm(0,1)
 
+poisson.lik <- function(par, dat) {
+  
+  n <- nrow(dat)
+  y <- dat$rbS.FinalScoreH
+  beta0 <- par[1]
+  beta1 <- par[2]
+  beta2 <- par[3]
 
+  lambda <- exp(beta0 + beta1 * dat$MeanH + beta2 * dat$SoG_H)
+  
+  logl <- sum(y)*log(lambda) - n*lambda
+  return(-logl)
+  
+}
 
+optim(par = par, fn = poisson.lik, dat = dat)
 
 
 
