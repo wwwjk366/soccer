@@ -7,8 +7,8 @@ rm(list=ls())
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 
 
-library(grid)
-theme_custom <- function(base_size = 13, base_family = "Helvetica") {
+
+theme_custom <- function(base_size = 13, base_family = "Franklin Gothic Medium") {
   theme_grey(base_size = base_size, base_family = base_family) %+replace%
     theme(
       line =              element_line(colour = '#DADADA', size = 0.75, 
@@ -68,15 +68,26 @@ ggplot(rawdata %>% group_by(ID) %>% summarise(home = max(MeanH), away = max(Mean
   theme_custom()
 
 
-ggplot(rawdata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(home)) + 
+
+
+a = rawdata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH))
+b = as.data.frame(rpois(9999,mean(a$home)))
+names(b)[1] = "simu"
+
+
+p1 = ggplot(a, aes(home)) + 
   geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
   ggtitle("Histogram of number of HGoals") + 
   theme_custom()
+  
 
-ggplot(rawdata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(away)) + 
+p2 = ggplot(b, aes(simu)) + 
   geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[7]) +
-  ggtitle("Histogram of number of AGoals") + 
+  ggtitle("Histogram of number of Simulated") + 
   theme_custom()
+
+grid.arrange(p1,p2)
+
 
 
 
@@ -97,9 +108,8 @@ ggplot(rawdata, aes(x = ScoreDiff, y = RCDiff)) +
 cleandata <- rawdata %>%
   select(-NeutralField) %>%
   mutate(RC_H = (RCTotal + RCDiff)/2, RC_A = (RCTotal - RCDiff)/2, 
-         CScore_H = (TotalScore + ScoreDiff)/2, CScore_A = (TotalScore - ScoreDiff)/2)
-
-
+         CScore_H = (TotalScore + ScoreDiff)/2, CScore_A = (TotalScore - ScoreDiff)/2,
+         RMScore_H = rbS.FinalScoreH - CScore_H, MScore_A = rbS.FinalScoreA - CScore_A)
 
 
 sort(table(rawdata$League))

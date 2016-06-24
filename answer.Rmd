@@ -1,0 +1,99 @@
+---
+title: "Real-time Model of Probability Matrix of Soccer Games"
+author: "Michael Yan"
+date: "June 24, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Methodology
+
+
+
+## Preliminary Processing
+
+Load packages and data that going to be used. I aslo define a theme function for customized ggplots.
+
+```{r, message=F, warning=F}
+library(dplyr)
+library(caret)
+library(scales)
+library(gridExtra)
+
+rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
+
+mycolor <- c(rep(c("#FF5A5F","#FFB400", "#007A87", "#8CE071", "#7B0051", "#00D1C1",
+                    "#FFAA91", "#B4A76C", "#9CA299", "#565A5C", "#00A04B","#E54C20"), 100))
+
+theme_custom <- function(base_size = 13, base_family = "Franklin Gothic Medium") {
+  theme_grey(base_size = base_size, base_family = base_family) %+replace%
+    theme(
+      line =              element_line(colour = '#DADADA', size = 0.75, 
+                                       linetype = 1, lineend = "butt"),
+      rect =              element_rect(fill = "#F0F0F0", colour = "#F0F0F0", 
+                                       size = 0.5, linetype = 1),
+      text =              element_text(family = base_family, face = "plain",
+                                       colour = "#656565", size = base_size,
+                                       hjust = 0.5, vjust = 0.5, angle = 0, 
+                                       lineheight = 0.9,margin = margin(), debug = FALSE),
+      plot.title =        element_text(size = rel(1.5), family = base_family , 
+                                       face = 'bold', hjust = -0.05, 
+                                       vjust = 1.5, colour = '#3B3B3B'),
+      axis.title.x =      element_blank(),
+      axis.title.y =      element_blank(),
+      axis.text =         element_text(),
+      axis.ticks =        element_line(),
+      panel.grid.major =  element_line(),
+      panel.grid.minor =  element_blank(),
+      plot.background =   element_rect(),
+      panel.background =  element_rect(),
+      legend.key =        element_rect(colour = '#DADADA'),
+      legend.position = 'none',
+      complete = TRUE
+    )
+}
+```
+
+By looking at the discriptive statistics of the dataset, we find that *NeutralField* is constant to 0. We can remove this variable from the dataset.
+
+```{r, message=F, warning=F}
+summary(rawdata$NeutralField)
+```
+
+Let's take a look at the distribution of the time of goals
+
+```{r, message=F, warning=F}
+goaltime <- rawdata %>% 
+  group_by(ID) %>%
+  mutate(gtime = TotalScore - lag(TotalScore)) %>%
+  select(ID, Minute, TotalScore, gtime, HasPenaltyShootout) %>%
+  filter(gtime == 1)
+
+ggplot(goaltime, aes(Minute)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  geom_density(color=mycolor[3],size = 1.5) +
+    ggtitle("Histogram of Goals") + 
+  theme_custom()
+```
+
+We can see that the distribution of the goals with 91 minutes of the match tends to gradually increase. This might due to the player tiredness, or during the early staged of the game the players are not fully warmed up yet.
+
+```{r, message=F, warning=F}
+p1 = ggplot(rawdata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(home)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  ggtitle("Histogram of number of HGoals") + 
+  theme_custom()
+
+p2 = ggplot(rawdata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(away)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[7]) +
+  ggtitle("Histogram of number of AGoals") + 
+  theme_custom()
+
+grid.arrange(p1,p2, nrow =1)
+```
+
+
+$$\hat{f}(\xi) = \sum_{-\infty}^{\infty}f(x)e^{-2\pi i x \xi}dx$$
