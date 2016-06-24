@@ -120,7 +120,7 @@ dtrain <- xgb.DMatrix(data=train.m, label=train.y,missing = NA)
 dtest <- xgb.DMatrix(data=test.m, label = test$rbS.FinalScoreH,missing = NA)
 
 watchlist <- list(train=dtrain)
-param <- list(  objective           = "count:poisson", 
+param <- list(  objective           = "reg:linear", 
                 booster             = "gblinear",
                 eval_metric         = "rmse",
                 alpha               = 0.0001, 
@@ -165,3 +165,19 @@ dpois(0:7,a)
 
 b = predict(model2, test1[1,], type="response")
 dpois(0:7,b)
+
+
+# score parameter ---------------------------------------------------------
+
+
+
+
+
+# time parameter ----------------------------------------------------------
+
+
+
+
+# generate matrix ---------------------------------------------------------
+
+
