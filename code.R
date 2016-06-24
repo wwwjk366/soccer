@@ -102,6 +102,49 @@ summary(model_a)
 pred_a = predict(model_a, test_a %>% select(MeanH, SoG_H) , type="response")
 postResample(pred_a, test_a$rbS.FinalScoreH)
 
+# two factors maximum likelihood
+
+LogLike <- function(dat, par) {
+  beta0 <- par[1]
+  beta1 <- par[2]
+  beta2 <- par[3]
+  # the deterministic part of the model:
+  lambda <- exp(beta0 + beta1 * dat$MeanH + beta2 * dat$SoG_H)
+  # and here comes the negative log-likelihood of the whole dataset, given the
+  # model:
+  LL <- -sum(dpois(dat$rbS.FinalScoreH, lambda, log = TRUE))
+  return(LL)
+}
+
+  
+beta0 <- rnorm(1)
+beta1 <- rnorm(1)
+beta2 <- rnorm(1)
+par1 <- c(beta0, beta1, beta2)
+
+  
+dat <- train_a %>% select(rbS.FinalScoreH, MeanH, SoG_H)
+
+m.like <- optim(par = par, fn = LogLike, dat = dat)
+m.like
+
+mle <- maxLik(logLik = LogLike, start = par1)
+summary(mle)
+
+
+new.predict <- exp(m.like$par[1] + m.like$par[2] * test_a$MeanH + m.like$par[3] * test_a$SoG_H)
+                   
+postResample(new.predict, test_a$rbS.FinalScoreH)
+
+
+
+
+
+
+
+
+
+
 
 #xgboost
 {
