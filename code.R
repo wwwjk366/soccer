@@ -1,26 +1,25 @@
 library(dplyr)
 library(caret)
 library(scales)
-library(xgboost)
+library(gridExtra)
 
 rm(list=ls())
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 
 
 
-theme_custom <- function(base_size = 13, base_family = "Franklin Gothic Medium") {
-  theme_grey(base_size = base_size, base_family = base_family) %+replace%
+theme_custom <- function(base_size = 11) {
+  theme_grey(base_size = base_size) %+replace%
     theme(
       line =              element_line(colour = '#DADADA', size = 0.75, 
                                        linetype = 1, lineend = "butt"),
       rect =              element_rect(fill = "#F0F0F0", colour = "#F0F0F0", 
                                        size = 0.5, linetype = 1),
-      text =              element_text(family = base_family, face = "plain",
+      text =              element_text(family = '', face = "plain",
                                        colour = "#656565", size = base_size,
                                        hjust = 0.5, vjust = 0.5, angle = 0, 
                                        lineheight = 0.9,margin = margin(), debug = FALSE),
-      
-      plot.title =        element_text(size = rel(1.5), family = '' , 
+      plot.title =        element_text(size = rel(1.5), 
                                        face = 'bold', hjust = -0.05, 
                                        vjust = 1.5, colour = '#3B3B3B'),
       axis.title.x =      element_blank(),
@@ -32,8 +31,7 @@ theme_custom <- function(base_size = 13, base_family = "Franklin Gothic Medium")
       plot.background =   element_rect(),
       panel.background =  element_rect(),
       legend.key =        element_rect(colour = '#DADADA'),
-      legend.position = 'none',
-      complete = TRUE
+      legend.position = 'none'
     )
 }
 # discriptive -------------------------------------------------------------
@@ -76,14 +74,14 @@ names(b)[1] = "simu"
 
 
 p1 = ggplot(a, aes(home)) + 
-  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[7]) +
   ggtitle("Histogram of number of HGoals") + 
   theme_custom()
   
 
 p2 = ggplot(b, aes(simu)) + 
   geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[7]) +
-  ggtitle("Histogram of number of Simulated") + 
+  ggtitle("Histogram of Simulated") + 
   theme_custom()
 
 grid.arrange(p1,p2)
@@ -149,8 +147,10 @@ summary(model_a)
 pred_a = predict(model_a, test_a %>% select(MeanH, SoG_H) , type="response")
 postResample(pred_a, test_a$rbS.FinalScoreH)
 
+
+
 # two factors maximum likelihood
-dat <- train %>% select(rbS.FinalScoreH, MeanH, SoG_H)
+dat <- train_a #%>% select(rbS.FinalScoreH, MeanH, SoG_H)
 
 LogLike <- function(dat, par) {
   beta0 <- par[1]
@@ -170,33 +170,12 @@ par <- c(beta0, beta1, beta2)
 
 m.like <- optim(par = par, fn = LogLike, dat = dat)
 m.like
-new.predict <- exp(m.like$par[1] + m.like$par[2] * test$MeanH + m.like$par[3] * test$SoG_H)
-postResample(new.predict, test$rbS.FinalScoreH)
+new.predict <- exp(m.like$par[1] + m.like$par[2] * test_a$MeanH + m.like$par[3] * test_a$SoG_H)
+postResample(new.predict, test_a$rbS.FinalScoreH)
 
+#test on match
 
-
-integrand <- function(x) {x}
-integrate(integrand, lower = 0, upper = 1)
-
-dnorm(0,1)
-
-poisson.lik <- function(par, dat) {
-  
-  n <- nrow(dat)
-  y <- dat$rbS.FinalScoreH
-  beta0 <- par[1]
-  beta1 <- par[2]
-  beta2 <- par[3]
-
-  lambda <- exp(beta0 + beta1 * dat$MeanH + beta2 * dat$SoG_H)
-  
-  logl <- sum(y)*log(lambda) - n*lambda
-  return(-logl)
-  
-}
-
-optim(par = par, fn = poisson.lik, dat = dat)
-
+train %>% filter(ID == 51033 & Minute !=0) %>% select(Minute, CScore_H, CScore_A) %>% distinct(CScore_H, CScore_A)
 
 
 
