@@ -4,6 +4,7 @@ library(scales)
 library(gridExtra)
 
 rm(list=ls())
+gc()
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 
 
@@ -121,7 +122,7 @@ df1 = rawdata %>% group_by(League, ID) %>%
 
 
 set.seed(3456)
-trainIndex <- createDataPartition(unique(cleandata$ID), p = .8,
+trainIndex <- createDataPartition(unique(cleandata$ID), p = .5,
                                   list = FALSE,
                                   times = 1)
 unique(cleandata$ID)[-trainIndex]
@@ -147,6 +148,7 @@ summary(model_a)
 pred_a = predict(model_a, test_a %>% select(MeanH, SoG_H) , type="response")
 postResample(pred_a, test_a$rbS.FinalScoreH)
 
+# two factor MLE ----------------------------------------------------------
 
 
 # two factors maximum likelihood
@@ -173,87 +175,71 @@ m.like
 new.predict <- exp(m.like$par[1] + m.like$par[2] * test_a$MeanH + m.like$par[3] * test_a$SoG_H)
 postResample(new.predict, test_a$rbS.FinalScoreH)
 
-#test on match
+
+# real time model ---------------------------------------------------------
 
 train %>% filter(ID == 51033 & Minute !=0) %>% select(Minute, CScore_H, CScore_A) %>% distinct(CScore_H, CScore_A)
 
+temp <- train %>% filter( Minute !=0)
+
+Llike <- function(dat, par) {
+  
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  beta0 <- par[1]
+  beta1 <- par[2]
+  beta2 <- par[3]
+  beta10 <- par[4]
+  beta01 <- par[5]
+  LL <- 0
+  for(i in 1:length(lDf)) {
+    
+    if(max(lDf[[i]]$ScoreDiff) > 0) {
+          lambda <- exp(beta0 + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H + beta10)
+      } else if(max(lDf[[i]]$ScoreDiff) < 0){
+        lambda <- exp(beta0 + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H + beta01)
+          } else {
+            lambda <- exp(beta0 + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H)
+          }
+          LL <- sum(dpois(lDf[[i]]$RMScore_H, lambda, log = TRUE)) + LL
+        
+      }
+      return(-LL)  
+    }
+  
+beta0 <- rnorm(1)
+beta1 <- rnorm(1)
+beta2 <- rnorm(1)
+beta10 <- rnorm(1)
+beta01 <- rnorm(1)
+
+par <- c(beta0, beta1, beta2, beta10, beta01)
+
+ptm <- proc.time()
+m.like <- optim(par = par, fn = Llike, dat = temp)
+m.like
+
+proc.time() - ptm
 
 
-#xgboost
-{
-train.y = train_a$rbS.FinalScoreH
-train.m = as.matrix(select(train_a, MeanH , RC_H ,YC_H, SoG_H, DAT_H, CR_H, FK_H))
-
-
-
-#xgboost22
-
-train.y = train$rbS.FinalScoreH
-train.m = as.matrix(select(train, MeanH , DrawProb, LeagueRanking, RC_H ,YC_H, SoG_H, DAT_H, CR_H, FK_H))
-test.m = as.matrix(select(test, MeanH , DrawProb, LeagueRanking, RC_H ,YC_H, SoG_H, DAT_H, CR_H, FK_H))
-
-dtrain <- xgb.DMatrix(data=train.m, label=train.y,missing = NA)
-dtest <- xgb.DMatrix(data=test.m, label = test$rbS.FinalScoreH,missing = NA)
-
-watchlist <- list(train=dtrain)
-param <- list(  objective           = "reg:linear", 
-                booster             = "gblinear",
-                eval_metric         = "rmse",
-                alpha               = 0.0001, 
-                lambda              = 1
-                
-)
-
-clf <- xgb.train(   params              = param, 
-                    data                = dtrain, 
-                    nrounds             = 500, 
-                    early.stop.round    = 5,
-                    verbose             = 1,
-                    watchlist           = watchlist
-                    )
-
-
-postResample(predict(clf,train.m), train.y)
-postResample(predict(clf,dtest), test$rbS.FinalScoreH)
+new.predict <-  function(dat, m.like) {
+    x = NULL
+    lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+      for(i in 1:length(lDf)) {
+        if(max(lDf[[i]]$ScoreDiff) > 0) {
+        x <- append(x,exp(m.like$par[1] + m.like$par[2] * lDf[[i]]$MeanH + m.like$par[3] * lDf[[i]]$SoG_H + m.like$par[4]))
+      } else if(max(lDf[[i]]$ScoreDiff) < 0){
+        x <- append(x,exp(m.like$par[1] + m.like$par[2] * lDf[[i]]$MeanH + m.like$par[3] * lDf[[i]]$SoG_H + m.like$par[5]))
+      } else {
+        x <- append(x,exp(m.like$par[1] + m.like$par[2] * lDf[[i]]$MeanH + m.like$par[3] * lDf[[i]]$SoG_H))
+      }
+        }
+        return(x)  
 }
 
-###
+a = new.predict(test,m.like)
+
+postResample(a, test$RMScore_H)
 
 
-model <- glm(rbS.FinalScoreH ~ MeanH + MeanA + Minute + TotalScore + ScoreDiff,
-             family = poisson(link = log), data = train)
-
-model2 <- glm(rbS.FinalScoreA ~ MeanH + MeanA + Minute + TotalScore + ScoreDiff,
-             family = poisson(link = log), data = train)
-summary(model)
-varImp(model)
-
-plot(model)
-
-test1 = select(test, MeanH , MeanA , Minute , TotalScore ,ScoreDiff)
-
-a = predict(model, test1, type="response")
-
-accuracy()
-
-plotrange <- 0:6
-dpois(0:7,a)
-
-b = predict(model2, test1[1,], type="response")
-dpois(0:7,b)
-
-
-# score parameter ---------------------------------------------------------
-
-
-
-
-
-# time parameter ----------------------------------------------------------
-
-
-
-
-# generate matrix ---------------------------------------------------------
 
 
