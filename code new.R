@@ -229,7 +229,8 @@ beta01 <- rnorm(1)
 
 par <- c(beta0, beta1, beta2, beta10, beta01)
 
-est_h <- optim(par = par, fn = Llike_h, dat = temp)
+est_h <- nlm(Llike_h, par,dat = temp)
+#est_h <- optim(par = par, fn = Llike_h, dat = temp)
 est_h
 
 new.predict_h <-  function(dat, est) {
@@ -237,11 +238,11 @@ new.predict_h <-  function(dat, est) {
     lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
       for(i in 1:length(lDf)) {
         if(max(lDf[[i]]$ScoreDiff) > 0) {
-        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[4]))
+        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H + est$estimate[4]))
       } else if(max(lDf[[i]]$ScoreDiff) < 0){
-        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[5]))
+        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H + est$estimate[5]))
       } else {
-        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H))
+        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H))
       }
         }
         return(x)  
@@ -286,7 +287,8 @@ gamma01 <- rnorm(1)
 par <- c(gamma0, gamma1, gamma2, gamma10, gamma01)
 
 
-est_a <- optim(par = par, fn = Llike_a, dat = temp)
+est_a <- nlm(Llike_a, par,dat = temp)
+#est_a <- optim(par = par, fn = Llike_a, dat = temp)
 est_a
 
 new.predict_a <-  function(dat, est) {
@@ -294,11 +296,11 @@ new.predict_a <-  function(dat, est) {
   lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
   for(i in 1:length(lDf)) {
     if(max(lDf[[i]]$ScoreDiff) < 0) {
-      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A + est_a$par[4]))
+      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A + est_a$estimate[4]))
     } else if(max(lDf[[i]]$ScoreDiff) > 0){
-      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A + est_a$par[5]))
+      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A + est_a$estimate[5]))
     } else {
-      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A))
+      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A))
     }
   }
   return(x)  
@@ -311,8 +313,27 @@ RMSE(predict_a, test$RMScore_A)
 proc.time() - ptm
 
 
-
 # generating matrix -------------------------------------------------------
 
-mat =round(dpois(0:8,predict_a[1]),4) %o% round(dpois(0:8,predict_h[1]),4)
+mats = list()
+
+for(i in 1:length(test$ID)) {
+  
+  m = round(dpois(0:8,predict_a[i]) %o% dpois(0:8,predict_h[i]),4)
+  rownames(m) = c(0:8) + test$CScore_A[i]
+  colnames(m) = c(0:8) + test$CScore_H[i]
+  mats[[i]] = m
+}
+
+mat =round(dpois(0:8,1.5),4) %o% round(dpois(0:8,2),4)
+rownames(mat) = c(0:8) + 1
+colnames(mat) = c(0:8)
+
+
+
+
+
+
+
+
 

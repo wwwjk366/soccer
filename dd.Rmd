@@ -1,16 +1,28 @@
 ---
 title: "Real-time Model of Probability Matrix of Soccer Games"
 author: "Michael Yan"
-date: "June 24, 2016"
+date: "June 28, 2016"
 output:
-  tufte::tufte_html: default
+  rmdformats::readthedown:
+    highlight: kate
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(#echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
 ```
-
-
 
 
 ## Preliminary Processing
@@ -65,7 +77,7 @@ cleandata <- rawdata %>%
          RMScore_H = rbS.FinalScoreH - CScore_H, RMScore_A = rbS.FinalScoreA - CScore_A)
 ```
 
-It is widely accepted in the literature that Poisson distribution should capture the distribution of home and away goals. Lets take a look at the histogram of Home and Aways goals of our dataset alongside with the simulated goals from Poisson distribution using the mean of goals from our dataset. Both home and away chart are relatively close to the simulated one, our notion is supported.
+It is widely accepted in the literatures that Poisson distribution should capture the distribution of home and away goals. Lets take a look at the histogram of Home and Aways goals of our dataset alongside with the simulated goals from Poisson distribution using the mean of goals from our dataset. Both home and away chart are relatively close to the simulated one, our notion is supported.
 
 ```{r, echo = F, message=F, warning=F, fig.height= 6, fig.width= 10}
 p1 = ggplot(cleandata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(home)) + 
