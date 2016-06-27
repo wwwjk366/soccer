@@ -493,7 +493,7 @@ new.predict_a <-  function(dat, est) {
   return(x)  
 }
 
-predict_a = new.predict_a(train,est_a)
+predict_a = new.predict_a(test,est_a)
 
 RMSE(predict_a, test$RMScore_A)
 
