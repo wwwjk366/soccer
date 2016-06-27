@@ -21,7 +21,7 @@ opts_chunk$set(#echo=FALSE,
                comment=NA,
                message=FALSE,
                warning=FALSE)
-opts_knit$set(width=75)
+opts_knit$set(width=80)
 ```
 
 
@@ -182,5 +182,21 @@ $$
 $x$ and $y$ are home goals and away goals respectively.$\mu_{xy}$ is defined similarly. This parameter is based on the assumption that current score will affect game intensity. For example, teams may try to defend a lead or to restore equality if the are ahead or behind respectively.
 The our problem became a poisson regression problem with the link function defined as $log(\lambda_{k,t})$. The likelihood contribution from each minutes within a match are summarized and since scores between matchs are assumed to be independent, so the overall log likelihood will be calculated by taking the summation over matches. After derived log-likelihood function, we can use R's *nlm()* or *optim()* functions to get parameter estimations.
 
-## 
+## Variable Selection
+
+We have over 30 variables in the dataset and intuitively we shouldn't put them all into the regression modelbecause this might overfit the model. Also, many of the independent variable clearly have certain degree of correlation. For example, Danger Zone Attack is definetly associated with Corner Kicks. Therefore, some preliminary work need to be done in order to reduce the variable list. Let's take a look at the pearson correlation matrix of the dataset:
+
+```{r, message=F, warning=F,fig.height= 10, fig.width= 10}
+library(corrplot)
+corr = round(cor(select(cleandata, -League, -DrawProb, -HasPenaltyShootout)),3)
+corrplot(corr)
+```
+
+Clearly we saw high correlations between in-game stats such as SoG, DAT, CR,etc. It is normal to pick variables that has higher correlation with our dependent variable *RMScore_H* and *RMScore_A* and has lower cross-correlation between each other. Based on this cratiea, *MeanH, MeanA, Minute, DAT, SoG, YC, FK* are selected variable going into log regression model
+
+
+
+
+
+##
 
