@@ -144,16 +144,22 @@ train <- filter(cleandata, ID %in% unique(cleandata$ID)[trainIndex])
 test <- filter(cleandata, ID %in% unique(cleandata$ID)[-trainIndex])
 
 train_a <- filter(train, Minute == 91)
-test_a <- filter(test, Minute == 91) %>% select(MeanH , RC_H ,YC_H, SoG_H, DAT_H, CR_H, FK_H, rbS.FinalScoreH)
 
+test_a <- filter(test, Minute == 91) %>% select(MeanH , RC_H ,YC_H, SoG_H, DAT_H, CR_H, FK_H, RMScore_H)
 
+cor(test_a)
 # all factors
-model_a <- glm(rbS.FinalScoreH ~ MeanH + RC_H + YC_H + SoG_H + DAT_H + CR_H + FK_H,
-             family = "poisson", data = train_a)
-summary(model_a)
-pred_a = predict(model_a, test_a , type="response")
-postResample(pred_a, test_a$rbS.FinalScoreH)
+model_h <- glm(RMScore_H ~ MeanH + RC_H + YC_H + SoG_H + DAT_H + CR_H + FK_H,
+             family = "poisson", data = train)
+summary(model_h)
+pred_h = predict(model_h, test, type="response")
+postResample(pred_h, test$RMScore_H)
 
+model_a <- glm(RMScore_A ~ MeanA + RC_A + YC_A + SoG_A + DAT_A + CR_A + FK_A,
+               family = "poisson", data = train)
+summary(model_a)
+pred_a = predict(model_a, test, type="response")
+postResample(pred_a, test$RMScore_H)
 
 # two factors
 model_a <- glm(rbS.FinalScoreH ~ MeanH + SoG_H, family = "poisson", data = train_a)
@@ -229,8 +235,8 @@ beta01 <- rnorm(1)
 
 par <- c(beta0, beta1, beta2, beta10, beta01)
 
-est_h <- nlm(Llike_h, par,dat = temp)
-#est_h <- optim(par = par, fn = Llike_h, dat = temp)
+#est_h <- nlm(Llike_h, par,dat = temp)
+est_h <- optim(par = par, fn = Llike_h, dat = temp)
 est_h
 
 new.predict_h <-  function(dat, est) {
@@ -238,11 +244,11 @@ new.predict_h <-  function(dat, est) {
     lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
       for(i in 1:length(lDf)) {
         if(max(lDf[[i]]$ScoreDiff) > 0) {
-        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H + est$estimate[4]))
+        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[4]))
       } else if(max(lDf[[i]]$ScoreDiff) < 0){
-        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H + est$estimate[5]))
+        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[5]))
       } else {
-        x <- append(x,exp(est$estimate[1] + est$estimate[2] * lDf[[i]]$MeanH + est$estimate[3] * lDf[[i]]$SoG_H))
+        x <- append(x,exp(est$par[1] + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H))
       }
         }
         return(x)  
@@ -287,8 +293,8 @@ gamma01 <- rnorm(1)
 par <- c(gamma0, gamma1, gamma2, gamma10, gamma01)
 
 
-est_a <- nlm(Llike_a, par,dat = temp)
-#est_a <- optim(par = par, fn = Llike_a, dat = temp)
+#est_a <- nlm(Llike_a, par,dat = temp)
+est_a <- optim(par = par, fn = Llike_a, dat = temp)
 est_a
 
 new.predict_a <-  function(dat, est) {
@@ -296,11 +302,11 @@ new.predict_a <-  function(dat, est) {
   lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
   for(i in 1:length(lDf)) {
     if(max(lDf[[i]]$ScoreDiff) < 0) {
-      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A + est_a$estimate[4]))
+      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A + est_a$par[4]))
     } else if(max(lDf[[i]]$ScoreDiff) > 0){
-      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A + est_a$estimate[5]))
+      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A + est_a$par[5]))
     } else {
-      x <- append(x,exp(est_a$estimate[1] + est_a$estimate[2] * lDf[[i]]$MeanA + est_a$estimate[3] * lDf[[i]]$SoG_A))
+      x <- append(x,exp(est_a$par[1] + est_a$par[2] * lDf[[i]]$MeanA + est_a$par[3] * lDf[[i]]$SoG_A))
     }
   }
   return(x)  
@@ -318,22 +324,177 @@ proc.time() - ptm
 mats = list()
 
 for(i in 1:length(test$ID)) {
-  
   m = round(dpois(0:8,predict_a[i]) %o% dpois(0:8,predict_h[i]),4)
   rownames(m) = c(0:8) + test$CScore_A[i]
   colnames(m) = c(0:8) + test$CScore_H[i]
   mats[[i]] = m
 }
 
-mat =round(dpois(0:8,1.5),4) %o% round(dpois(0:8,2),4)
-rownames(mat) = c(0:8) + 1
-colnames(mat) = c(0:8)
+
+mats2 = list()
+
+for(i in 1:length(test$ID)) {
+  m = round(dpois(0:8,pred_a[i]) %o% dpois(0:8,pred_h[i]),4)
+  rownames(m) = c(0:8) + test$CScore_A[i]
+  colnames(m) = c(0:8) + test$CScore_H[i]
+  mats2[[i]] = m
+}
 
 
+# more complex real time model ---------------------------------------------------------
+
+########### model for home team
+ptm <- proc.time()
+#train %>% filter(ID == 51033 & Minute !=0) %>% select(Minute, CScore_H, CScore_A) %>% distinct(CScore_H, CScore_A)
+
+temp <- train %>% filter( Minute !=0)
+test <- test %>% filter( Minute !=0)
+
+Llike_h <- function(dat, par) {
+  
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  beta0 <- par[1]
+  beta1 <- par[2]
+  beta2 <- par[3]
+  beta10 <- par[4]
+  beta01 <- par[5]
+  beta3 <- par[6]
+  beta4 <- par[7]
+  beta5 <- par[8]
+  beta6 <- par[9]
+  beta7 <- par[10]
+
+  
+  LL <- 0
+  for(i in 1:length(lDf)) {
+    
+    if(max(lDf[[i]]$ScoreDiff) > 0) {
+      lambda <- exp(beta0 *lDf[[i]]$Minute/91  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H + beta3*lDf[[i]]$RC_H +
+                      beta4*lDf[[i]]$DAT_H + beta5*lDf[[i]]$YC_H + beta6*lDf[[i]]$CR_H + beta7*lDf[[i]]$FK_H + beta10)
+    } else if(max(lDf[[i]]$ScoreDiff) < 0){
+      lambda <- exp(beta0 *lDf[[i]]$Minute/91  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H + beta3*lDf[[i]]$RC_H +
+                      beta4*lDf[[i]]$DAT_H + beta5*lDf[[i]]$YC_H + beta6*lDf[[i]]$CR_H + beta7*lDf[[i]]$FK_H + beta01)
+    } else {
+      lambda <- exp(beta0 *lDf[[i]]$Minute/91  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H + beta3*lDf[[i]]$RC_H +
+                      beta4*lDf[[i]]$DAT_H + beta5*lDf[[i]]$YC_H + beta6*lDf[[i]]$CR_H + beta7*lDf[[i]]$FK_H)
+    }
+    LL <- sum(dpois(lDf[[i]]$RMScore_H, lambda, log = TRUE)) + LL
+  }
+  return(-LL)  
+}
+
+beta0 <- rnorm(1)
+beta1 <- rnorm(1)
+beta2 <- rnorm(1)
+beta10 <- rnorm(1)
+beta01 <- rnorm(1)
+beta3 <- rnorm(1)
+beta4 <- rnorm(1)
+beta5 <- rnorm(1)
+beta6 <- rnorm(1)
+beta7 <- rnorm(1)
+
+par <- c(beta0, beta1, beta2, beta10, beta01,beta3, beta4, beta5,beta6, beta7 )
+
+#est_h <- nlm(Llike_h, par,dat = temp)
+est_h <- optim(par = par, fn = Llike_h, dat = temp)
+est_h
+
+new.predict_h <-  function(dat, est) {
+  x = NULL
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  for(i in 1:length(lDf)) {
+    if(max(lDf[[i]]$ScoreDiff) > 0) {
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[6]*lDf[[i]]$RC_H +
+                          est$par[7]*lDf[[i]]$DAT_H + est$par[8]*lDf[[i]]$YC_H + est$par[9]*lDf[[i]]$CR_H + est$par[10]*lDf[[i]]$FK_H +est$par[4]))
+    } else if(max(lDf[[i]]$ScoreDiff) < 0){
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[6]*lDf[[i]]$RC_H +
+                          est$par[7]*lDf[[i]]$DAT_H + est$par[8]*lDf[[i]]$YC_H + est$par[9]*lDf[[i]]$CR_H + est$par[10]*lDf[[i]]$FK_H + est$par[5]))
+    } else {
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + est$par[6]*lDf[[i]]$RC_H +
+                          est$par[7]*lDf[[i]]$DAT_H + est$par[8]*lDf[[i]]$YC_H + est$par[9]*lDf[[i]]$CR_H + est$par[10]*lDf[[i]]$FK_H))
+    }
+  }
+  return(x)  
+}
+
+predict_h = new.predict_h(test,est_h)
+
+RMSE(predict_h, test$RMScore_H)
+
+########### model for away team
 
 
+Llike_a <- function(dat, par) {
+  
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  
+  gamma0 <- par[1]
+  gamma1 <- par[2]
+  gamma2 <- par[3]
+  gamma10 <- par[4]
+  gamma01 <- par[5]
+  gamma3 <- par[6]
+  gamma4 <- par[7]
+  gamma5 <- par[8]
+  gamma6 <- par[9]
+  gamma7 <- par[10]
+  
+  LL <- 0
+  for(i in 1:length(lDf)) {
+    
+    if(max(lDf[[i]]$ScoreDiff) < 0) {
+      mu <- exp(gamma0 *lDf[[i]]$Minute/91  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + gamma3*lDf[[i]]$RC_A +
+                      gamma4*lDf[[i]]$DAT_A + gamma5*lDf[[i]]$YC_A + gamma6*lDf[[i]]$CR_A + gamma7*lDf[[i]]$FK_A + gamma10)
+    } else if(max(lDf[[i]]$ScoreDiff) > 0){
+      mu <- exp(gamma0 *lDf[[i]]$Minute/91  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + gamma3*lDf[[i]]$RC_A +
+                  gamma4*lDf[[i]]$DAT_A + gamma5*lDf[[i]]$YC_A + gamma6*lDf[[i]]$CR_A + gamma7*lDf[[i]]$FK_A + gamma01)
+    } else {
+      mu <- exp(gamma0 *lDf[[i]]$Minute/91  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + gamma3*lDf[[i]]$RC_A +
+                  gamma4*lDf[[i]]$DAT_A + gamma5*lDf[[i]]$YC_A + gamma6*lDf[[i]]$CR_A + gamma7*lDf[[i]]$FK_A)
+    }
+    LL <- sum(dpois(lDf[[i]]$RMScore_A, mu, log = TRUE)) + LL
+  }
+  return(-LL)  
+}
 
+gamma0 <- rnorm(1)
+gamma1 <- rnorm(1)
+gamma2 <- rnorm(1)
+gamma10 <- rnorm(1)
+gamma01 <- rnorm(1)
+gamma3 <- rnorm(1)
+gamma4 <- rnorm(1)
+gamma5 <- rnorm(1)
+gamma6 <- rnorm(1)
+gamma7 <- rnorm(1)
 
+par <- c(gamma0, gamma1, gamma2, gamma10, gamma01,gamma3, gamma4, gamma5,gamma6, gamma7 )
 
+#est_a <- nlm(Llike_a, par,dat = temp)
+est_a <- optim(par = par, fn = Llike_a, dat = temp)
+est_a
 
+new.predict_a <-  function(dat, est) {
+  x = NULL
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  for(i in 1:length(lDf)) {
+    if(max(lDf[[i]]$ScoreDiff) < 0) {
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + est$par[6]*lDf[[i]]$RC_A +
+                          est$par[7]*lDf[[i]]$DAT_A + est$par[8]*lDf[[i]]$YC_A + est$par[9]*lDf[[i]]$CR_A + est$par[10]*lDf[[i]]$FK_A +est$par[4]))
+    } else if(max(lDf[[i]]$ScoreDiff) > 0){
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + est$par[6]*lDf[[i]]$RC_A +
+                          est$par[7]*lDf[[i]]$DAT_A + est$par[8]*lDf[[i]]$YC_A + est$par[9]*lDf[[i]]$CR_A + est$par[10]*lDf[[i]]$FK_A + est$par[5]))
+    } else {
+      x <- append(x,exp(est$par[1] *lDf[[i]]$Minute/91+ est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + est$par[6]*lDf[[i]]$RC_A +
+                          est$par[7]*lDf[[i]]$DAT_A + est$par[8]*lDf[[i]]$YC_A + est$par[9]*lDf[[i]]$CR_A + est$par[10]*lDf[[i]]$FK_A))
+    }
+  }
+  return(x)  
+}
 
+predict_a = new.predict_a(train,est_a)
+
+RMSE(predict_a, test$RMScore_A)
+
+proc.time() - ptm

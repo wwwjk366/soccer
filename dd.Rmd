@@ -91,11 +91,11 @@ p2 = ggplot(cleandata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH)
   theme_custom()
 
 a1 <- cleandata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH))
-b1 <- as.data.frame(rpois(9999,mean(a1$home)))
+b1 <- as.data.frame(rpois(99999,mean(a1$home)))
 names(b1)[1] = "simu"
 
 a2 = cleandata %>% group_by(ID) %>% summarise(away = max(rbS.FinalScoreA))
-b2 = as.data.frame(rpois(9999,mean(a2$away)))
+b2 = as.data.frame(rpois(99999,mean(a2$away)))
 names(b2)[1] = "simu"
 
 p3 = ggplot(b1, aes(simu)) + 
@@ -166,6 +166,21 @@ We can see that the distribution of the goals with 91 minutes of the match tends
 
 ## Model Methodology
 
+After we made the assumption that the number of goals in a game is following poisson distribution, The goal outcome of a remainder of the match between home team away team in match $k$ is modeled as:
+$$HomeGoals_k \sim Poisson(\lambda_{k,t})$$
+$$AwayGoals_k \sim Poisson(\mu_{k,t})$$
+The parameters of the Poisson distribution are define as 
+$$log(\lambda_{k,t}) = \beta_0 + \beta_1*factor_1 + \beta_2*factor_2 + \cdots +  \lambda_{xy}$$
+$$log(\mu_{k,t}) = \gamma_0 + \gamma_1*factor_1 + \gamma_2*factor_2 + \cdots + \mu_{xy}$$
+where $\beta_{xy}$ is a piecewise function:
+$$\lambda_{xy} = \begin{cases} 
+      0 & x = y \\
+      \lambda_{10} & x > y \\
+      \lambda_{01} & x < y 
+   \end{cases}
+$$
+$x$ and $y$ are home goals and away goals respectively.$\mu_{xy}$ is defined similarly. This parameter is based on the assumption that current score will affect game intensity. For example, teams may try to defend a lead or to restore equality if the are ahead or behind respectively.
+The our problem became a poisson regression problem with the link function defined as $log(\lambda_{k,t})$. The likelihood contribution from each minutes within a match are summarized and since scores between matchs are assumed to be independent, so the overall log likelihood will be calculated by taking the summation over matches. After derived log-likelihood function, we can use R's *nlm()* or *optim()* functions to get parameter estimations.
 
+## 
 
-$$\hat{f}(\xi) = \sum_{-\infty}^{\infty}f(x)e^{-2\pi i x \xi}dx$$
