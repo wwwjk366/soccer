@@ -6,7 +6,8 @@ library(gridExtra)
 rm(list=ls())
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 
-
+a = round(cor(select(cleandata, -League, -DrawProb)),3)
+> corrplot(a)
 
 theme_custom <- function(base_size = 11) {
   theme_grey(base_size = base_size) %+replace%
