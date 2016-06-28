@@ -7,9 +7,18 @@ output:
     highlight: kate
 ---
 
+```{r, echo = F, message=F, warning=F}
+package.list = c("dplyr", "caret", "scales", "gridExtra","rmdformats","knitr", "corrplot")
+new.packages <-package.list[!(package.list %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, repos='http://cran.us.r-project.org')
 
-```{r knitr_init, echo=FALSE, cache=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r knitr_init, echo=FALSE, cache=FALSE, warning=F}
+library(knitr)
+library(rmdformats)
+
+## Global options
 options(max.print="75")
 opts_chunk$set(#echo=FALSE,
 	             cache=TRUE,
@@ -18,7 +27,7 @@ opts_chunk$set(#echo=FALSE,
                comment=NA,
                message=FALSE,
                warning=FALSE)
-opts_knit$set(width=80)
+opts_knit$set(width=90)
 ```
 
 
@@ -27,14 +36,17 @@ opts_knit$set(width=80)
 Load packages and data that going to be used. I aslo define a theme function for customized ggplots.
 
 ```{r, message=F, warning=F}
-.packages = c("dplyr", "caret", "scales", "gridExtra","rmdformats","knitr", "corrplot")
-.inst <- .packages %in% installed.packages()
-if(length(.packages[!.inst]) > 0) install.packages(.packages[!.inst],repos = 'http://cran.us.r-project.org')
-lapply(.packages, require, character.only=TRUE)
+library(dplyr)
+library(caret)
+library(scales)
+library(gridExtra)
+library(corrplot)
 
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
+
 mycolor <- c(rep(c("#FF5A5F","#FFB400", "#007A87", "#8CE071", "#7B0051", "#00D1C1",
                     "#FFAA91", "#B4A76C", "#9CA299", "#565A5C", "#00A04B","#E54C20"), 100))
+
 theme_custom <- function(base_size = 11, base_family = "Franklin Gothic Medium") {
   theme_grey(base_size = base_size, base_family = base_family) %+replace%
     theme(
