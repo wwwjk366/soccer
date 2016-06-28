@@ -140,8 +140,8 @@ trainIndex <- createDataPartition(unique(cleandata$ID), p = .6,
                                   times = 1)
 
 
-train <- filter(cleandata, ID %in% unique(cleandata$ID)[trainIndex])
-test <- filter(cleandata, ID %in% unique(cleandata$ID)[-trainIndex])
+train <- filter(PC, ID %in% unique(cleandata$ID)[trainIndex])
+test <- filter(PC, ID %in% unique(cleandata$ID)[-trainIndex])
 
 train_a <- filter(train, Minute == 91)
 
@@ -354,13 +354,29 @@ test <- filter(cleandata, ID %in% unique(cleandata$ID)[-trainIndex])
 
 preObj <- preProcess(train[, 14:22], method=c("center", "scale"))
 
+trans = preProcess(cleandata %>% select(SoG_H,DAT_H,CR_H,YC_H,FK_H,RC_H), 
+                   method=c("BoxCox", "center", 
+                            "scale", "pca"))
+PC = predict(trans, cleandata)
+
+trans2 = preProcess(cleandata %>% select(SoG_A,DAT_A,CR_A,YC_A,FK_A,RC_A), 
+                   method=c("BoxCox", "center", 
+                            "scale", "pca"))
+PC2 = predict(trans2, cleandata)
+
+PC = cbind(PC, PC2$PC1)
+
+names(PC)[31] = "PC1_A"
+
+train <- filter(PC, ID %in% unique(cleandata$ID)[trainIndex])
+test <- filter(PC, ID %in% unique(cleandata$ID)[-trainIndex])
 
 ########### model for home team
 ptm <- proc.time()
 #train %>% filter(ID == 51033 & Minute !=0) %>% select(Minute, CScore_H, CScore_A) %>% distinct(CScore_H, CScore_A)
 
-temp <- trainBC %>% filter( Minute !=0)
-test <- testBC %>% filter( Minute !=0)
+temp <- train %>% filter( Minute !=0)
+test <- test %>% filter( Minute !=0)
 
 Llike_h <- function(dat, par) {
   
@@ -371,22 +387,16 @@ Llike_h <- function(dat, par) {
   beta10 <- par[4]
   beta01 <- par[5]
   beta3 <- par[6]
-  beta4 <- par[7]
-  beta5 <- par[8]
-  beta6 <- par[9]
-
+  
   LL <- 0
   for(i in 1:length(lDf)) {
     
     if(max(lDf[[i]]$ScoreDiff) > 0) {
-      lambda <- exp(beta0 * sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H +
-                      beta3*lDf[[i]]$DAT_H + beta4*lDf[[i]]$YC_H  + beta5*lDf[[i]]$FK_H + beta6 + beta10)
+      lambda <- exp(beta0 * sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$PC1 + beta3+ beta10)
     } else if(max(lDf[[i]]$ScoreDiff) < 0){
-      lambda <- exp(beta0 *sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H +
-                      beta3*lDf[[i]]$DAT_H + beta4*lDf[[i]]$YC_H  + beta5*lDf[[i]]$FK_H + beta6 + beta01)
+      lambda <- exp(beta0 *sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH +  beta2 * lDf[[i]]$PC1 + beta3 + beta01)
     } else {
-      lambda <- exp(beta0 *sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$SoG_H +
-                      beta3*lDf[[i]]$DAT_H + beta4*lDf[[i]]$YC_H  + beta5*lDf[[i]]$FK_H + beta6)
+      lambda <- exp(beta0 *sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$PC1 + beta3)
     }
     LL <- sum(dpois(lDf[[i]]$RMScore_H, lambda, log = TRUE)) + LL
   }
@@ -398,12 +408,9 @@ beta1 <- rnorm(1)
 beta2 <- rnorm(1)
 beta10 <- rnorm(1)
 beta01 <- rnorm(1)
-beta3 <- rnorm(1)
-beta4 <- rnorm(1)
-beta5 <- rnorm(1)
-beta6 <- rnorm(1)
+beta3<- rnorm(1)
 
-par <- c(beta0, beta1, beta2, beta10, beta01,beta3, beta4, beta5,beta6)
+par <- c(beta0, beta1, beta2, beta10, beta01, beta3)
 
 est_h <- nlm(Llike_h, par,dat = temp)
 names(est_h)[2] = "par"
@@ -416,14 +423,11 @@ new.predict_h <-  function(dat, est) {
   lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
   for(i in 1:length(lDf)) {
     if(max(lDf[[i]]$ScoreDiff) > 0) {
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + 
-                          est$par[6]*lDf[[i]]$DAT_H + est$par[7]*lDf[[i]]$YC_H + est$par[8]*lDf[[i]]$FK_H +est$par[9]+ est$par[4]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$PC1 +est$par[6]+ est$par[4]))
     } else if(max(lDf[[i]]$ScoreDiff) < 0){
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + 
-                          est$par[6]*lDf[[i]]$DAT_H + est$par[7]*lDf[[i]]$YC_H + est$par[8]*lDf[[i]]$FK_H +est$par[9]+ est$par[5]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH +est$par[3] * lDf[[i]]$PC1 +est$par[6]+ est$par[5]))
     } else {
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$SoG_H + 
-                          est$par[6]*lDf[[i]]$DAT_H + est$par[7]*lDf[[i]]$YC_H + est$par[8]*lDf[[i]]$FK_H +est$par[9]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$PC1 +est$par[6]))
     }
   }
   return(x)  
@@ -446,22 +450,17 @@ Llike_a <- function(dat, par) {
   gamma10 <- par[4]
   gamma01 <- par[5]
   gamma3 <- par[6]
-  gamma4 <- par[7]
-  gamma5 <- par[8]
-  gamma6 <- par[9]
+
 
   LL <- 0
   for(i in 1:length(lDf)) {
     
     if(max(lDf[[i]]$ScoreDiff) < 0) {
-      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91) + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + 
-                      gamma3*lDf[[i]]$DAT_A + gamma4*lDf[[i]]$YC_A + gamma5*lDf[[i]]$FK_A + gamma6+ gamma10)
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91) + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3 + gamma10)
     } else if(max(lDf[[i]]$ScoreDiff) > 0){
-      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91)  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + 
-                  gamma3*lDf[[i]]$DAT_A + gamma4*lDf[[i]]$YC_A + gamma5*lDf[[i]]$FK_A + gamma6+ gamma01)
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91)  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3 + gamma01)
     } else {
-      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91)  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$SoG_A + 
-                  gamma3*lDf[[i]]$DAT_A + gamma4*lDf[[i]]$YC_A + gamma5*lDf[[i]]$FK_A + gamma6)
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91)  + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3)
     }
     LL <- sum(dpois(lDf[[i]]$RMScore_A, mu, log = TRUE)) + LL
   }
@@ -474,12 +473,8 @@ gamma2 <- rnorm(1)
 gamma10 <- rnorm(1)
 gamma01 <- rnorm(1)
 gamma3 <- rnorm(1)
-gamma4 <- rnorm(1)
-gamma5 <- rnorm(1)
-gamma6 <- rnorm(1)
 
-
-par <- c(gamma0, gamma1, gamma2, gamma10, gamma01,gamma3, gamma4, gamma5,gamma6)
+par <- c(gamma0, gamma1, gamma2, gamma10, gamma01,gamma3)
 
 est_a <- nlm(Llike_a, par,dat = temp)
 names(est_a)[2] = "par"
@@ -491,14 +486,11 @@ new.predict_a <-  function(dat, est) {
   lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
   for(i in 1:length(lDf)) {
     if(max(lDf[[i]]$ScoreDiff) < 0) {
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + 
-                          est$par[6]*lDf[[i]]$DAT_A + est$par[7]*lDf[[i]]$YC_A + est$par[8]*lDf[[i]]$FK_A + est$par[9] +est$par[4]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$PC1_A + est$par[6] +est$par[4]))
     } else if(max(lDf[[i]]$ScoreDiff) > 0){
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + 
-                          est$par[6]*lDf[[i]]$DAT_A + est$par[7]*lDf[[i]]$YC_A + est$par[8]*lDf[[i]]$FK_A + est$par[9]  +est$par[5]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$PC1_A +est$par[6]  +est$par[5]))
     } else {
-      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$SoG_A + 
-                          est$par[6]*lDf[[i]]$DAT_A + est$par[7]*lDf[[i]]$YC_A + est$par[8]*lDf[[i]]$FK_A + est$par[9]))
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA +est$par[3] * lDf[[i]]$PC1_A + est$par[6]))
     }
   }
   return(x)  
@@ -513,6 +505,12 @@ proc.time() - ptm
 
 # PCA ---------------------------------------------------------------------
 
-ir.pca <- prcomp(log.ir,
-                 center = TRUE,
-                 scale. = TRUE) 
+ir.pca <- prcomp(cleandata %>% select(MeanH, SoG_H,DAT_H,CR_H,YC_H,FK_H,RC_H), center = TRUE, scale. = TRUE) 
+
+trans = preProcess(cleandata %>% select(SoG_H,DAT_H,CR_H,YC_H,FK_H,RC_H), 
+                   method=c("BoxCox", "center", 
+                            "scale", "pca"))
+PC = predict(trans, cleandata)
+
+
+

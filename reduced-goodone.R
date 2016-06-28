@@ -318,29 +318,6 @@ RMSE(predict_a, test$RMScore_A)
 
 proc.time() - ptm
 
-
-# generating matrix -------------------------------------------------------
-
-mats = list()
-
-for(i in 1:length(test$ID)) {
-  m = round(dpois(0:8,predict_a[i]) %o% dpois(0:8,predict_h[i]),4)
-  rownames(m) = c(0:8) + test$CScore_A[i]
-  colnames(m) = c(0:8) + test$CScore_H[i]
-  mats[[i]] = m
-}
-
-
-mats2 = list()
-
-for(i in 1:length(test$ID)) {
-  m = round(dpois(0:8,pred_a[i]) %o% dpois(0:8,pred_h[i]),4)
-  rownames(m) = c(0:8) + test$CScore_A[i]
-  colnames(m) = c(0:8) + test$CScore_H[i]
-  mats2[[i]] = m
-}
-
-
 # more complex real time model ---------------------------------------------------------
 
 set.seed(1234)
@@ -354,6 +331,8 @@ test <- filter(cleandata, ID %in% unique(cleandata$ID)[-trainIndex])
 
 preObj <- preProcess(train[, 14:22], method=c("center", "scale"))
 
+trainBC <- predict(preObj, train)
+testBC <- predict(preObj, test)
 
 ########### model for home team
 ptm <- proc.time()
@@ -509,6 +488,29 @@ predict_a = round(new.predict_a(test,est_a),4)
 RMSE(predict_a, test$RMScore_A)
 
 proc.time() - ptm
+
+
+
+# generating matrix -------------------------------------------------------
+
+mats = list()
+
+for(i in 1:length(test$ID)) {
+  m = round(dpois(0:8,predict_a[i]) %o% dpois(0:8,predict_h[i]),4)
+  rownames(m) = c(0:8) + test$CScore_A[i]
+  colnames(m) = c(0:8) + test$CScore_H[i]
+  mats[[i]] = m
+}
+
+
+mats2 = list()
+
+for(i in 1:length(test$ID)) {
+  m = round(dpois(0:8,pred_a[i]) %o% dpois(0:8,pred_h[i]),4)
+  rownames(m) = c(0:8) + test$CScore_A[i]
+  colnames(m) = c(0:8) + test$CScore_H[i]
+  mats2[[i]] = m
+}
 
 
 # PCA ---------------------------------------------------------------------
