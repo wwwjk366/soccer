@@ -9,10 +9,7 @@ output:
 
 
 ```{r knitr_init, echo=FALSE, cache=FALSE}
-library(knitr)
-library(rmdformats)
-
-## Global options
+knitr::opts_chunk$set(echo = TRUE)
 options(max.print="75")
 opts_chunk$set(#echo=FALSE,
 	             cache=TRUE,
@@ -30,10 +27,11 @@ opts_knit$set(width=80)
 Load packages and data that going to be used. I aslo define a theme function for customized ggplots.
 
 ```{r, message=F, warning=F}
-library(dplyr)
-library(caret)
-library(scales)
-library(gridExtra)
+.packages = c("dplyr", "caret", "scales", "gridExtra","rmdformats","knitr", "corrplot")
+.inst <- .packages %in% installed.packages()
+if(length(.packages[!.inst]) > 0) install.packages(.packages[!.inst],repos = 'http://cran.us.r-project.org')
+lapply(.packages, require, character.only=TRUE)
+
 rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 mycolor <- c(rep(c("#FF5A5F","#FFB400", "#007A87", "#8CE071", "#7B0051", "#00D1C1",
                     "#FFAA91", "#B4A76C", "#9CA299", "#565A5C", "#00A04B","#E54C20"), 100))
@@ -187,7 +185,6 @@ The our problem became a poisson regression problem with the link function defin
 We have over 30 variables in the dataset and intuitively we shouldn't put them all into the regression modelbecause this might overfit the model. Also, many of the independent variable clearly have certain degree of correlation. For example, Danger Zone Attack is definetly associated with Corner Kicks. Therefore, some preliminary work need to be done in order to reduce the variable list. Let's take a look at the pearson correlation matrix of the dataset:
 
 ```{r, message=F, warning=F,fig.height= 10, fig.width= 10}
-library(corrplot)
 corr = round(cor(select(cleandata, -League, -DrawProb, -HasPenaltyShootout)),3)
 corrplot(corr)
 ```
