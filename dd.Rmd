@@ -47,7 +47,7 @@ rawdata <- read.csv("TrainingData_Sample2.csv", stringsAsFactors=FALSE)
 mycolor <- c(rep(c("#FF5A5F","#FFB400", "#007A87", "#8CE071", "#7B0051", "#00D1C1",
                     "#FFAA91", "#B4A76C", "#9CA299", "#565A5C", "#00A04B","#E54C20"), 100))
 
-theme_custom <- function(base_size = 11, base_family = "Franklin Gothic Medium") {
+theme_custom <- function(base_size = 10, base_family = "Franklin Gothic Medium") {
   theme_grey(base_size = base_size, base_family = base_family) %+replace%
     theme(
       line =              element_line(colour = '#DADADA', size = 0.75, 
@@ -151,9 +151,6 @@ p4 = ggplot(b2, aes(simu)) +
   theme_custom()
 
 grid.arrange(p1,p2,p3,p4, nrow =2)
-
-
-
 ```
 
 
@@ -201,11 +198,7 @@ corr = round(cor(select(cleandata, -League, -DrawProb, -HasPenaltyShootout)),3)
 corrplot(corr)
 ```
 
-Clearly we saw high correlations between in-game stats such as SoG, DAT, CR,etc. It is normal to pick variables that has higher correlation with our dependent variable *RMScore_H* and *RMScore_A* and has lower cross-correlation between each other. Based on this cratiea, *MeanH, MeanA, Minute, DAT, SoG, YC, FK* are selected variable going into log regression model
-
-
-
-
+Clearly we saw high correlations between in-game stats such as SoG, DAT, CR,etc. I've already tried to put all the factors in the model and it seems like the model will be overfitted with a really high RMSE on the test set. In order to prevent that from happening, I run a principal component analysis on the dataset and use the first principal component instead.
 
 ##
 
