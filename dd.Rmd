@@ -33,7 +33,7 @@ opts_knit$set(width=90)
 
 ## Preliminary Processing
 
-Load packages and data that going to be used. I aslo define a theme function for customized ggplots.
+Load packages and data that going to be used. I aslo defined a theme function for customized ggplots.
 
 ```{r, message=F, warning=F}
 library(dplyr)
@@ -76,7 +76,7 @@ theme_custom <- function(base_size = 10, base_family = "Franklin Gothic Medium")
 }
 ```
 
-By looking at the discriptive statistics of the dataset, we find that *NeutralField* is constant to 0. We can remove this variable from the dataset. Current score, current red cards nad remaining goals of both teams are calculated from the raw dataset.
+By looking at the discriptive statistics of the dataset, we find that *NeutralField* is constant to 0. We can remove this variable from dataset. Current score, current red cards and remaining goals of both teams are calculated from the raw dataset.
 
 ```{r, message=F, warning=F}
 summary(rawdata$NeutralField)
@@ -87,7 +87,7 @@ cleandata <- rawdata %>%
          RMScore_H = rbS.FinalScoreH - CScore_H, RMScore_A = rbS.FinalScoreA - CScore_A)
 ```
 
-It is widely accepted in the literatures that Poisson distribution should capture the distribution of home and away goals. Lets take a look at the histogram of Home and Aways goals of our dataset alongside with the simulated goals from Poisson distribution using the mean of goals from our dataset. Both home and away chart are relatively close to the simulated one, our notion is supported.
+It is widely accepted in the literatures that **Poisson distribution** should capture the distribution of home and away goals. Lets take a look at the histogram of Home and Aways goals of our dataset alongside with the simulated goals from Poisson distribution using the mean of goals from our dataset. **Both home and away chart are relatively close to the simulated one**, our notion is supported.
 
 ```{r, echo = F, message=F, warning=F, fig.height= 6, fig.width= 10}
 p1 = ggplot(cleandata %>% group_by(ID) %>% summarise(home = max(rbS.FinalScoreH), away = max(rbS.FinalScoreA)), aes(home)) + 
@@ -121,7 +121,7 @@ p4 = ggplot(b2, aes(simu)) +
 grid.arrange(p1,p2,p3,p4, nrow =2)
 ```
 
-However, in this question we are not trying to predict the game result, but to perdict the result of the remainder of the game. *RMScore_H* and *RMScore_A* are calculated using *rbS.FinalScore* subtracted by current score. Generating the same histogram for *RMScore_H* and *RMScore_A* as above, we can assume that goals in the remainder of the game is also following Poisson distribution.
+However, in this question we are not trying to predict the fincal game result, but to perdict the **result of the remainder of the game**. Therefore, *RMScore_H* and *RMScore_A* are calculated using *rbS.FinalScore* subtracted by current score. After construct those variables, let's re-generating the same histogram for *RMScore_H* and *RMScore_A* as above. From the chart we can assume that goals in the remainder of the game is also following Poisson distribution.
 
 ```{r, echo = F,message=F, warning=F, fig.height= 6, fig.width= 10}
 p1 = ggplot(cleandata, aes(RMScore_H)) + 
@@ -154,24 +154,8 @@ grid.arrange(p1,p2,p3,p4, nrow =2)
 ```
 
 
-Let's take a look at the distribution of the time of goals
 
-```{r, message=F, warning=F}
-goaltime <- cleandata %>% 
-  group_by(ID) %>%
-  mutate(gtime = TotalScore - lag(TotalScore)) %>%
-  select(ID, Minute, TotalScore, gtime, HasPenaltyShootout) %>%
-  filter(gtime == 1)
-
-ggplot(goaltime, aes(Minute)) + 
-  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
-  geom_density(color=mycolor[3],size = 1.5) +
-    ggtitle("Histogram of Goals") + 
-  theme_custom()
-```
-We can see that the distribution of the goals with 91 minutes of the match tends to gradually increase. This might due to the player tiredness, or during the early staged of the game the players are not fully warmed up yet.
-
-## Model Methodology
+## Modeling Methodology
 
 After we made the assumption that the number of goals in a game is following poisson distribution, The goal outcome of a remainder of the match between home team away team in match $k$ is modeled as:
 $$HomeGoals_k \sim Poisson(\lambda_{k,t})$$
@@ -187,18 +171,296 @@ $$\lambda_{xy} = \begin{cases}
    \end{cases}
 $$
 $x$ and $y$ are home goals and away goals respectively.$\mu_{xy}$ is defined similarly. This parameter is based on the assumption that current score will affect game intensity. For example, teams may try to defend a lead or to restore equality if the are ahead or behind respectively.
-The our problem became a poisson regression problem with the link function defined as $log(\lambda_{k,t})$. The likelihood contribution from each minutes within a match are summarized and since scores between matchs are assumed to be independent, so the overall log likelihood will be calculated by taking the summation over matches. After derived log-likelihood function, we can use R's *nlm()* or *optim()* functions to get parameter estimations.
+Then our problem becames a poisson regression problem with the link function defined as $log(\lambda_{k,t})$. The likelihood contribution from each minutes within a match are summarized and since scores between matchs are assumed to be independent, so the overall log-likelihood will be calculated by taking the summation over matches. After derived log-likelihood function, we can use R's *nlm()* or *optim()* functions to get parameter estimations.
 
-## Variable Selection
+## Variable Selection and Feature Engineering
 
-We have over 30 variables in the dataset and intuitively we shouldn't put them all into the regression modelbecause this might overfit the model. Also, many of the independent variable clearly have certain degree of correlation. For example, Danger Zone Attack is definetly associated with Corner Kicks. Therefore, some preliminary work need to be done in order to reduce the variable list. Let's take a look at the pearson correlation matrix of the dataset:
+We have over 30 variables in the dataset and intuitively we shouldn't put them all into the regression model because this might overfit the model. Also, many of the independent variables clearly have certain degrees of correlation. For example, Danger Zone Attack is definetly associated with Corner Kicks. Therefore, some preliminary work need to be done in order to reduce the variable list. Let's take a look at the pearson correlation matrix of the dataset:
 
-```{r, message=F, warning=F,fig.height= 10, fig.width= 10}
+```{r, message=F, warning=F,fig.height= 9, fig.width= 9}
 corr = round(cor(select(cleandata, -League, -DrawProb, -HasPenaltyShootout)),3)
 corrplot(corr)
 ```
 
-Clearly we saw high correlations between in-game stats such as SoG, DAT, CR,etc. I've already tried to put all the factors in the model and it seems like the model will be overfitted with a really high RMSE on the test set. In order to prevent that from happening, I run a principal component analysis on the dataset and use the first principal component instead.
+Clearly we saw high correlations between in-game stats such as SoG, DAT, CR, etc. In order to reduce the risk of overfitting, let's run a principal component analysis on the dataset.
 
-##
+```{r, message=F, warning=F}
+pca <- prcomp(cleandata %>% select(SoG_H,DAT_H,CR_H,YC_H,FK_H,RC_H), center = TRUE, scale. = TRUE) 
+summary(pca)
+plot(pca, type= "l")
+```
+
+From the PCA result we can see that PC1 and PC2 together contributed 71% of the total variance. Elbow method also suggeset that in this case choosing the first two principe component seems to be the most appropriate choice. Therefore, the variables I choosed to enter the regression model are **MeanA&H, Minute, PC1, PC2,$\lambda_{xy}$**. For Scaling proporses, **Minute** will be rescaled to [0,1] and will be taken square root in order to amplify the minute effect in the early game. Hence, our poisson regression link functions for home team and away team became
+
+$$log(\lambda_{k,t}) = \beta_0*\sqrt{T} + \beta_1*Mean_H + \beta_2*PC1_H + \beta_3*PC2_H + \lambda_{xy} + \beta_4$$
+$$log(\mu_{k,t}) = \gamma_0*T^2 + \gamma_1*Mean_A + \gamma_2*PC1_A + \gamma_3*PC2_A + \mu_{xy} + \gamma_4$$
+
+
+##Parameter Estimation
+
+Becase of the existence of piecewise parameter $\lambda_{xy}$ and $\mu_{xy}$, we can't simply use *glm()* to fit the model. However, the maximum likelihood function can be derived by using the logic in model methodology chapter and easily maximized. 
+
+Before training the model, I split the whole dataset into test and training with 60% and 40% of the data respectively. Note that the sampling is not happening at minutes level but at the match level instead in order to make sure that every match has full 91 minutes. Principle components are calculated using *preProcess()* function of *caret* package.
+
+```{r, eval = T , message=F, warning=F}
+
+set.seed(1234)
+trainIndex <- createDataPartition(unique(cleandata$ID), p = .6,
+                                  list = FALSE,
+                                  times = 1)
+
+train <- filter(cleandata, ID %in% unique(cleandata$ID)[trainIndex])
+test <- filter(cleandata, ID %in% unique(cleandata$ID)[-trainIndex])
+
+preObj <- preProcess(train[, 14:22], method=c("center", "scale"))
+
+trans = preProcess(cleandata %>% select(SoG_H,DAT_H,CR_H,YC_H,FK_H,RC_H), 
+                   method=c("BoxCox", "center","scale", "pca"))
+PC = predict(trans, cleandata)
+
+trans2 = preProcess(cleandata %>% select(SoG_A,DAT_A,CR_A,YC_A,FK_A,RC_A), 
+                   method=c("BoxCox", "center", "scale", "pca"))
+PC2 = predict(trans2, cleandata)
+
+PC = cbind(PC, PC2$PC1,PC2$PC2)
+
+names(PC)[31] = "PC1_A"
+names(PC)[32] = "PC2_A"
+
+train <- filter(PC, ID %in% unique(cleandata$ID)[trainIndex])
+test <- filter(PC, ID %in% unique(cleandata$ID)[-trainIndex])
+```
+
+In my above code I filtered out Minute = 0 because it is not the actually minutes happened in the game and if kept will zero-inflated the data.
+
+```{r, eval = T , message=F, warning=F}
+########### model for home team
+ptm <- proc.time()
+temp <- train %>% filter( Minute !=0)
+test <- test %>% filter( Minute !=0)
+
+#log-likelihood function for home team
+Llike_h <- function(dat, par) {
+  #split dataset into interval of different scores
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  #set up parameters
+  beta0 <- par[1]
+  beta1 <- par[2]
+  beta2 <- par[3]
+  beta10 <- par[4]
+  beta01 <- par[5]
+  beta3 <- par[6]
+  beta4 <- par[7]
+  LL <- 0
+  #loop to combine log likelihood functions
+  for(i in 1:length(lDf)) {
+    
+    if(max(lDf[[i]]$ScoreDiff) > 0) {
+      lambda <- exp(beta0 * sqrt(lDf[[i]]$Minute/91)  + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$PC1 + beta3* lDf[[i]]$PC2 + beta4 + beta10)
+    } else if(max(lDf[[i]]$ScoreDiff) < 0){
+      lambda <- exp(beta0 * sqrt(lDf[[i]]$Minute/91) + beta1 * lDf[[i]]$MeanH +  beta2 * lDf[[i]]$PC1 + beta3* lDf[[i]]$PC2 + beta4 + beta01)
+    } else {
+      lambda <- exp(beta0 * sqrt(lDf[[i]]$Minute/91) + beta1 * lDf[[i]]$MeanH + beta2 * lDf[[i]]$PC1 + beta3* lDf[[i]]$PC2 + beta4)
+    }
+    LL <- sum(dpois(lDf[[i]]$RMScore_H, lambda, log = TRUE)) + LL
+  }
+  return(-LL)  # take negative
+}
+
+#set up initial values for MLE
+beta0 <- rnorm(1)
+beta1 <- rnorm(1)
+beta2 <- rnorm(1)
+beta10 <- rnorm(1)
+beta01 <- rnorm(1)
+beta3<- rnorm(1)
+beta4<- rnorm(1)
+par <- c(beta0, beta1, beta2, beta10, beta01, beta3, beta4)
+
+#optimizate
+est_h <- nlm(Llike_h, par,dat = temp)
+names(est_h)[2] = "par"
+est_h
+proc.time() - ptm
+```
+
+Function *nlm()* will try to minimize the input function using a Newton-type algorithm. therefore I took the negative of likelihood function in order to achieve MLE estimate. 
+
+This process takes about 3 minutes to run and in the output of *nlm()*, code = 1 means relative gradient is close to zero, current iterate is probably solution. Array **par** is our parameter estimation result.
+
+In order to predict values using those parameter, we have to define the prediction function similiar to log-likelihood function above. Then we used this function to calculate fitted values on test dataset.
+
+```{r, eval = T , message=F, warning=F}
+new.predict_h <-  function(dat, est) {
+  x = NULL
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  for(i in 1:length(lDf)) {
+    if(max(lDf[[i]]$ScoreDiff) > 0) {
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$PC1 + est$par[6]* lDf[[i]]$PC2 + est$par[7] + est$par[4]))
+    } else if(max(lDf[[i]]$ScoreDiff) < 0){
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH +est$par[3] * lDf[[i]]$PC1 +est$par[6]* lDf[[i]]$PC2 + est$par[7]+ est$par[5]))
+    } else {
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanH + est$par[3] * lDf[[i]]$PC1+ est$par[6]* lDf[[i]]$PC2 + est$par[7]))
+    }
+  }
+  return(x) # return estimate for lambda 
+}
+#prediction on test set
+predict_h = round(new.predict_h(test,est_h),4)
+#calculate RMSE
+RMSE(predict_h, test$RMScore_H)
+
+proc.time() - ptm
+
+```
+
+Now let's do the same thing for away model
+
+```{r, eval = T , message=F, warning=F}
+########### model for away team
+Llike_a <- function(dat, par) {
+  
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  
+  gamma0 <- par[1]
+  gamma1 <- par[2]
+  gamma2 <- par[3]
+  gamma10 <- par[4]
+  gamma01 <- par[5]
+  gamma3 <- par[6]
+  gamma4 <- par[7]
+  
+  LL <- 0
+    
+  for(i in 1:length(lDf)) {
+    
+    if(max(lDf[[i]]$ScoreDiff) < 0) {
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91) + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3 * lDf[[i]]$PC2_A + gamma4 + gamma10)
+    } else if(max(lDf[[i]]$ScoreDiff) > 0){
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91) + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3 * lDf[[i]]$PC2_A + gamma4 + gamma01)
+    } else {
+      mu <- exp(gamma0 * sqrt(lDf[[i]]$Minute/91) + gamma1 * lDf[[i]]$MeanA + gamma2 * lDf[[i]]$PC1_A + gamma3 * lDf[[i]]$PC2_A + gamma4)
+    }
+    LL <- sum(dpois(lDf[[i]]$RMScore_A, mu, log = TRUE)) + LL
+  }
+  return(-LL)  
+}
+
+gamma0 <- rnorm(1)
+gamma1 <- rnorm(1)
+gamma2 <- rnorm(1)
+gamma10 <- rnorm(1)
+gamma01 <- rnorm(1)
+gamma3 <- rnorm(1)
+gamma4 <- rnorm(1)
+
+par <- c(gamma0, gamma1, gamma2, gamma10, gamma01,gamma3, gamma4)
+
+est_a <- nlm(Llike_a, par,dat = temp)
+names(est_a)[2] = "par"
+est_a
+
+new.predict_a <-  function(dat, est) {
+  x = NULL
+  lDf <- split(dat, list(dat$ID, dat$TotalScore), drop =  TRUE)
+  for(i in 1:length(lDf)) {
+    if(max(lDf[[i]]$ScoreDiff) < 0) {
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$PC1_A + est$par[6]*lDf[[i]]$PC2_A + est$par[7] +est$par[4]))
+    } else if(max(lDf[[i]]$ScoreDiff) > 0){
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA + est$par[3] * lDf[[i]]$PC1_A +est$par[6]*lDf[[i]]$PC2_A + est$par[7] + est$par[5]))
+    } else {
+      x <- append(x,exp(est$par[1] * sqrt(lDf[[i]]$Minute/91) + est$par[2] * lDf[[i]]$MeanA +est$par[3] * lDf[[i]]$PC1_A + est$par[6]*lDf[[i]]$PC2_A + est$par[7] ))
+    }
+  }
+  return(x)  
+}
+
+predict_a = round(new.predict_a(test,est_a),4)
+
+RMSE(predict_a, test$RMScore_A)
+
+proc.time() - ptm
+
+```
+
+RMSE on the fitted values of home and away model are 1.148728 and 0.972111. Histogram of fitted value indicates the similiar distribution as the **RMScore_H** and **RMScore_A**.
+
+```{r, eval = T , message=F, warning=F,fig.height= 4, fig.width= 9}
+p5 <- ggplot(as.data.frame(predict_h), aes(predict_h)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  ggtitle("Prediction of Remaining Home Goals") + 
+  theme_custom()
+
+p6 <- ggplot(as.data.frame(predict_a), aes(predict_a)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  ggtitle("Prediction of Remaining Away Goals") + 
+  theme_custom()
+
+grid.arrange(p5,p6,p1,p2, nrow = 2)
+```
+
+### Remarks on Model Training
+
+I did a lot of model training and testings in order to find the best model in this case. However I didn't include all the trail-and-errors because it will make the code too long to run since each model fitting process takes about 10 minutes. The code will also be unreadable because of many repeated codes. Here are the some efforts I tried along:
+
+* Only picked the top two factors in the dataset with highest correlation to RMScore and lowest cross-correlation but end up with a model not significant enough.
+* Used the normal time parameter $T$ not $\sqrt{T}$ and I found that current minute should be give more weight at the beginning of the match since we are try to predict remaining goals.
+* I put all factors individually into the model and got a overfitted model with very high RMSE on the test dataset.
+* I tried use *optim()* function and sometime I cannot reach convergence of my log-likelihood function.
+
+
+## Generating Probability Matrices
+
+After generating all the prediction of $\lambda$ and $\mu$, we can put them in to Poisson pdf to get the corresponding probability of remaining score. Taking the outer product will yield the probability matrix of time $t$. It is worth mention that since we are generating the probability of remaining score, the match outcome probability matrix should be adjusted once a score happened. The columns of the matrix represent home goals and the rows represent away goals.
+
+```{r, eval = T , message=F, warning=F}
+mats = list()
+for(i in 1:length(test$ID)) {
+  m = round(dpois(0:8,predict_a[i]) %o% dpois(0:8,predict_h[i]),4)
+  rownames(m) = c(0:8) + test$CScore_A[i]
+  colnames(m) = c(0:8) + test$CScore_H[i]
+  mats[[i]] = m
+}
+```
+
+Let's take a look at the first match in test dataset. It is a French2 game of final result Home 0:1 Away and that only goal happened at minute 18. The first matrix showing the probability of every possible outcome at minute 16 and the second one is minute 22 after the goal. We can see that not only outcome probability changed, but labels of Home and away goals also get adjusted accrodingly. At minute 90 our model predict that there are 21% of the chance the game will ends 0:1 and it is also the most probable outcome.
+
+```{r, eval = T , message=F, warning=F}
+mats[[16]]
+mats[[22]]
+mats[[90]]
+```
+
+## More Possible Steps I would Like to try
+
+### Piecewise factor at minute 45
+
+I found a interesting behavior when I examing the data. Let's take a look at the distribution of the time of goals
+
+```{r, message=F, warning=F, fig.height= 4, fig.width= 5}
+goaltime <- cleandata %>% 
+  group_by(ID) %>%
+  mutate(gtime = TotalScore - lag(TotalScore)) %>%
+  select(ID, Minute, TotalScore, gtime, HasPenaltyShootout) %>%
+  filter(gtime == 1)
+
+ggplot(goaltime, aes(Minute)) + 
+  geom_histogram(aes(y = ..density..),binwidth = 1,fill = mycolor[1], color = mycolor[2]) +
+  geom_density(color=mycolor[3],size = 1.5) +
+    ggtitle("Histogram of Goals") + 
+  theme_custom()
+```
+
+We can see that there is a spike of goals at minute 45 telling us that it might be appropriate to incroprate this effect by introducing another piecewise factor into our model.
+
+### MCMC for estimating parameters
+
+Currently I used MLE estimate for parameters. However, the optimization algorithm in R may crash, or it can get stuck at a local optimum and cannot converge to a value, espically when given more data or try to build more complex models. In such cases, MCMC will give the flexibility – we can modify our models as much as you want and still effectively fit them.
+
+### Try other model fitting method
+
+Instead of using poisson regression for modeling, we could try using more advanced methods such as boosted trees.
+
+XGBoost method has an learning objective parameter "count:poisson" to do training on poisson regression models. XGBoost method is very popular nowadays because of its flexibility, ability to handle missing values, resilient to overfitting etc.
+
 
